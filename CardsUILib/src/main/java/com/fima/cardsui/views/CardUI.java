@@ -1,29 +1,23 @@
 package com.fima.cardsui.views;
 
-import java.util.ArrayList;
-
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.os.Build;
 import android.util.AttributeSet;
-import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.view.animation.TranslateAnimation;
-import android.widget.AbsListView;
+import android.widget.*;
 import android.widget.AbsListView.OnScrollListener;
-import android.widget.FrameLayout;
-import android.widget.Space;
-import android.widget.TableLayout;
-import android.widget.TableRow;
-
 import com.fima.cardsui.R;
 import com.fima.cardsui.StackAdapter;
 import com.fima.cardsui.objects.AbstractCard;
 import com.fima.cardsui.objects.Card;
 import com.fima.cardsui.objects.CardStack;
+
+import java.util.ArrayList;
 
 public class CardUI extends FrameLayout {
 
@@ -34,12 +28,22 @@ public class CardUI extends FrameLayout {
 	private static final int STATE_ONSCREEN = 0;
 	private static final int STATE_OFFSCREEN = 1;
 	private static final int STATE_RETURNING = 2;
+    private EndlessListener endlessListener;
+    private int visibleThreshold = 5;
 
-	public interface OnRenderedListener {
+    public void setEndlessListener(EndlessListener endlessListener) {
+        this.endlessListener = endlessListener;
+    }
+
+    public interface OnRenderedListener {
 		public void onRendered();
 	}
 
-	/********************************
+    public interface EndlessListener {
+        public void dataNeeded();
+    }
+
+    /********************************
 	 * Fields
 	 * 
 	 ********************************/
@@ -117,7 +121,21 @@ public class CardUI extends FrameLayout {
 		mQuickReturnView = (ViewGroup) findViewById(R.id.sticky);
 		mPlaceholderView = mHeader.findViewById(R.id.placeholder);
 
-	}
+        mListView.setOnScrollListener(new OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(AbsListView absListView, int i) {
+            }
+
+            @Override
+            public void onScroll(AbsListView view, int firstVisibleItem,
+                                 int visibleItemCount, int totalItemCount) {
+                if (endlessListener != null && (totalItemCount - visibleItemCount) <= (firstVisibleItem + visibleThreshold)) {
+                    endlessListener.dataNeeded();
+                }
+            }
+        });
+
+    }
 
 	public void setSwipeable(boolean b) {
 		mSwipeable = b;
@@ -145,7 +163,11 @@ public class CardUI extends FrameLayout {
 			public void onScroll(AbsListView view, int firstVisibleItem,
 					int visibleItemCount, int totalItemCount) {
 
-				mScrollY = 0;
+                if (endlessListener != null && (totalItemCount - visibleItemCount) <= (firstVisibleItem + visibleThreshold)) {
+                    endlessListener.dataNeeded();
+                }
+
+                mScrollY = 0;
 				int translationY = 0;
 
 				if (mListView.scrollYIsComputed()) {
@@ -196,8 +218,7 @@ public class CardUI extends FrameLayout {
 
 				/** this can be used if the build is below honeycomb **/
 				if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.HONEYCOMB) {
-					TranslateAnimation anim = new TranslateAnimation(0, 0,
-							translationY, translationY);
+					TranslateAnimation anim = new TranslateAnimation(0, 0, translationY, translationY);
 					anim.setFillAfter(true);
 					anim.setDuration(0);
 					mQuickReturnView.startAnimation(anim);
